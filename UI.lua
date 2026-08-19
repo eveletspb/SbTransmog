@@ -13,6 +13,7 @@ local ITEM_GAP = 6
 local GRID_COLUMNS = 10
 local GRID_ROWS = 6
 local BUTTON_COUNT = GRID_COLUMNS * GRID_ROWS
+local QUESTION_MARK_ICON = "Interface\\Icons\\INV_Misc_QuestionMark"
 
 local LEFT_SLOTS = { 0, 2, 14, 4, 3, 18 }
 local RIGHT_SLOTS = { 9, 8, 5, 6, 7, 15, 16, 17 }
@@ -124,6 +125,16 @@ local function GetQualityColor(quality)
         return color.r, color.g, color.b
     end
     return 0.45, 0.45, 0.45
+end
+
+local function GetItemTexture(itemEntry, cachedTexture)
+    if cachedTexture then
+        return cachedTexture
+    end
+    if GetItemIcon then
+        return GetItemIcon(itemEntry)
+    end
+    return nil
 end
 
 function UI:CreateSlotButton(parent, slot, side, index)
@@ -635,6 +646,10 @@ function UI:Create()
     searchButton:SetPoint("LEFT", search, "RIGHT", 10, 0)
     searchButton:SetScript("OnClick", function() UI:RequestPage(0) end)
 
+    local itemInfoTooltip = CreateFrame("GameTooltip", "SbTransmogItemInfoTooltip", frame, "GameTooltipTemplate")
+    itemInfoTooltip:SetOwner(frame, "ANCHOR_NONE")
+    itemInfoTooltip:Hide()
+
     self.itemButtons = {}
     for index = 1, BUTTON_COUNT do
         self:CreateItemButton(collectionPanel, index)
@@ -717,6 +732,7 @@ function UI:Create()
     self.status = status
     self.gridOverlay = gridOverlay
     self.outfits = outfits
+    self.itemInfoTooltip = itemInfoTooltip
 end
 
 function UI:Open()
@@ -902,16 +918,31 @@ function UI:UpdateSelectedItemText()
     self.selectedText:SetTextColor(red, green, blue)
 end
 
+function UI:RequestItemInfo(itemEntry)
+    self.requestedItemInfo = self.requestedItemInfo or {}
+    if not self.itemInfoTooltip or self.requestedItemInfo[itemEntry] then
+        return
+    end
+
+    self.requestedItemInfo[itemEntry] = true
+    self.itemInfoTooltip:ClearLines()
+    self.itemInfoTooltip:SetHyperlink("item:" .. itemEntry)
+    self.itemInfoTooltip:Hide()
+end
+
 function UI:RefreshItemInfo()
     if not self.itemButtons then return end
     self.hasMissingItemInfo = false
     for _, button in ipairs(self.itemButtons) do
         if button.itemEntry then
-            local _, _, quality, _, _, _, _, _, _, texture = GetItemInfo("item:" .. button.itemEntry)
+            local name, _, quality, _, _, _, _, _, _, texture = GetItemInfo("item:" .. button.itemEntry)
+            texture = GetItemTexture(button.itemEntry, texture)
             if texture then
                 button.icon:SetTexture(texture)
-            else
+            end
+            if not name then
                 self.hasMissingItemInfo = true
+                self:RequestItemInfo(button.itemEntry)
             end
             local red, green, blue = GetQualityColor(quality)
             for _, border in pairs(button.qualityOutline) do
@@ -940,14 +971,18 @@ function UI:ShowPage(meta, items)
     self:UpdateTransmogSlotMarkers()
     self.hasMissingItemInfo = false
     self.itemInfoRefreshAttempts = 0
+    self.requestedItemInfo = {}
 
     for index, button in ipairs(self.itemButtons) do
         local itemEntry = items[index]
         button.itemEntry = itemEntry
         if itemEntry then
-            local _, _, quality, _, _, _, _, _, _, texture = GetItemInfo("item:" .. itemEntry)
-            button.icon:SetTexture(texture or "Interface\\Icons\\INV_Misc_QuestionMark")
-            if not texture then self.hasMissingItemInfo = true end
+            local name, _, quality, _, _, _, _, _, _, texture = GetItemInfo("item:" .. itemEntry)
+            button.icon:SetTexture(GetItemTexture(itemEntry, texture) or QUESTION_MARK_ICON)
+            if not name then
+                self.hasMissingItemInfo = true
+                self:RequestItemInfo(itemEntry)
+            end
             local red, green, blue = GetQualityColor(quality)
             for _, border in pairs(button.qualityOutline) do
                 border:SetTexture(red, green, blue, 1)
