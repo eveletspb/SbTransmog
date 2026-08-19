@@ -36,7 +36,7 @@ function Addon:PreviewDraft()
             link = itemLink
         end
         if link then
-            if slot == OFF_HAND_SLOT then
+            if slot == OFF_HAND_SLOT and self.UI.model.UndressSlot then
                 self.UI.model:UndressSlot(slot + 1)
             end
             self.UI.model:TryOn(link)
