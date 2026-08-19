@@ -2,10 +2,12 @@
 
 Client addon for the AzerothCore `mod-transmog` module.
 
+
 ## Requirements
 
 - World of Warcraft 3.3.5a (interface 30300)
 - A server running a compatible `mod-transmog` version
+- fork  https://github.com/eveletspb/mod-transmog
 
 ## Installation
 
