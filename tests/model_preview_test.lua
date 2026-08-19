@@ -2,7 +2,7 @@ local calls = {}
 
 SbTransmog = {
     draftSlots = { [16] = 19019 },
-    transmogSlots = {},
+    transmogSlots = { [15] = 32837 },
     UI = {
         model = {
             SetUnit = function(_, unit)
@@ -41,12 +41,15 @@ end)
 assert(success, "off-hand preview should work when UndressSlot is unavailable")
 assert(previewed, "off-hand draft should be previewed")
 
-local tryOnCall
-for index, call in ipairs(calls) do
-    if call.name == "TryOn" then tryOnCall = index end
+local triedOn = {}
+for _, call in ipairs(calls) do
+    if call.name == "TryOn" then
+        table.insert(triedOn, call.value)
+    end
 end
 
-assert(tryOnCall, "off-hand appearance should be passed to TryOn")
-assert(calls[tryOnCall].value == "item:19019", "selected off-hand appearance should be previewed")
+assert(#triedOn == 2, "main-hand should be applied before an off-hand preview")
+assert(triedOn[1] == "item:32837", "current main-hand appearance should keep the first weapon slot")
+assert(triedOn[2] == "item:19019", "selected off-hand appearance should use the second weapon slot")
 
 print("model_preview_test: ok")

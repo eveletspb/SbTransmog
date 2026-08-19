@@ -1,9 +1,29 @@
 SbTransmog = SbTransmog or {}
 
 local Addon = SbTransmog
+local MAIN_HAND_SLOT = 15
 local OFF_HAND_SLOT = 16
 
 Addon.draftSlots = Addon.draftSlots or {}
+
+local function TryOnItem(addon, slot, itemEntry)
+    local link
+    if itemEntry == 0 then
+        link = GetInventoryItemLink("player", slot + 1)
+    else
+        local _, itemLink = GetItemInfo("item:" .. itemEntry)
+        link = itemLink
+    end
+
+    if not link then
+        return false
+    end
+    if slot == OFF_HAND_SLOT and addon.UI.model.UndressSlot then
+        addon.UI.model:UndressSlot(slot + 1)
+    end
+    addon.UI.model:TryOn(link)
+    return true
+end
 
 function Addon:ResetPreview()
     if not self.UI or not self.UI.model then
@@ -28,21 +48,25 @@ function Addon:PreviewDraft()
     self.pendingDraftPreview = false
 
     for slot, itemEntry in pairs(self.draftSlots) do
-        local link
-        if itemEntry == 0 then
-            link = GetInventoryItemLink("player", slot + 1)
-        else
-            local _, itemLink = GetItemInfo("item:" .. itemEntry)
-            link = itemLink
-        end
-        if link then
-            if slot == OFF_HAND_SLOT and self.UI.model.UndressSlot then
-                self.UI.model:UndressSlot(slot + 1)
-            end
-            self.UI.model:TryOn(link)
-        else
+        if slot ~= MAIN_HAND_SLOT and slot ~= OFF_HAND_SLOT and not TryOnItem(self, slot, itemEntry) then
             self.pendingDraftPreview = true
         end
+    end
+
+    local mainHandDraft = self.draftSlots[MAIN_HAND_SLOT]
+    local offHandDraft = self.draftSlots[OFF_HAND_SLOT]
+    if mainHandDraft ~= nil then
+        if not TryOnItem(self, MAIN_HAND_SLOT, mainHandDraft) then
+            self.pendingDraftPreview = true
+        end
+    elseif offHandDraft ~= nil then
+        local currentMainHand = (self.transmogSlots or {})[MAIN_HAND_SLOT]
+        if not TryOnItem(self, MAIN_HAND_SLOT, currentMainHand or 0) and currentMainHand then
+            self.pendingDraftPreview = true
+        end
+    end
+    if offHandDraft ~= nil and not TryOnItem(self, OFF_HAND_SLOT, offHandDraft) then
+        self.pendingDraftPreview = true
     end
 
     if self.pendingDraftPreview then
