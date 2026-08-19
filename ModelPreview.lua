@@ -1,6 +1,7 @@
 SbTransmog = SbTransmog or {}
 
 local Addon = SbTransmog
+local OFF_HAND_SLOT = 16
 
 Addon.draftSlots = Addon.draftSlots or {}
 
@@ -35,6 +36,9 @@ function Addon:PreviewDraft()
             link = itemLink
         end
         if link then
+            if slot == OFF_HAND_SLOT then
+                self.UI.model:UndressSlot(slot + 1)
+            end
             self.UI.model:TryOn(link)
         else
             self.pendingDraftPreview = true
