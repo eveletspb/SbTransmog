@@ -1,4 +1,4 @@
-ACoreTransmogLocale = {
+SbTransmogLocale = {
     TITLE = "Transmogrification",
     SUBTITLE = "Appearance collection",
     PREVIEW = "PREVIEW",
@@ -86,7 +86,7 @@ ACoreTransmogLocale = {
 }
 
 if GetLocale() == "ruRU" then
-    local L = ACoreTransmogLocale
+    local L = SbTransmogLocale
     L.TITLE = "Трансмогрификация"
     L.SUBTITLE = "Коллекция обликов"
     L.PREVIEW = "ПРЕДПРОСМОТР"

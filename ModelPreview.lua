@@ -1,6 +1,6 @@
-ACoreTransmog = ACoreTransmog or {}
+SbTransmog = SbTransmog or {}
 
-local Addon = ACoreTransmog
+local Addon = SbTransmog
 
 Addon.draftSlots = Addon.draftSlots or {}
 
@@ -42,13 +42,13 @@ function Addon:PreviewDraft()
     end
 
     if self.pendingDraftPreview then
-        self.UI:SetStatus(ACoreTransmogLocale.PREVIEW_LOADING, 1, 0.82, 0)
+        self.UI:SetStatus(SbTransmogLocale.PREVIEW_LOADING, 1, 0.82, 0)
         return false
     end
 
     local count = self:GetDraftCount()
     if count > 0 then
-        self.UI:SetStatus(string.format(ACoreTransmogLocale.DRAFT_READY, count), 0.35, 0.8, 1)
+        self.UI:SetStatus(string.format(SbTransmogLocale.DRAFT_READY, count), 0.35, 0.8, 1)
     end
     return count > 0
 end
@@ -105,7 +105,7 @@ function Addon:LoadSavedSet(presetId)
         self.UI:UpdateDraftState()
         self.UI:UpdateSelection()
         self.UI:UpdateSelectedItemText()
-        self.UI:SetStatus(string.format(ACoreTransmogLocale.SET_LOADED, savedSet.name), 0.35, 0.8, 1)
+        self.UI:SetStatus(string.format(SbTransmogLocale.SET_LOADED, savedSet.name), 0.35, 0.8, 1)
     end
     return true
 end

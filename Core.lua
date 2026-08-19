@@ -1,6 +1,6 @@
-ACoreTransmog = ACoreTransmog or {}
+SbTransmog = SbTransmog or {}
 
-local Addon = ACoreTransmog
+local Addon = SbTransmog
 local eventFrame = CreateFrame("Frame")
 local helloDelay = nil
 local helloAttempts = 0
@@ -50,11 +50,11 @@ eventFrame:SetScript("OnUpdate", function(self, elapsed)
     end
 end)
 
-SLASH_ACORETRANSMOG1 = "/transmog"
+SLASH_SBTRANSMOG1 = "/transmog"
 local function PrintDebug()
     local connected = Addon.connected and "yes" or "no"
     local session = Addon.sessionId and tostring(Addon.sessionId) or "none"
-    DEFAULT_CHAT_FRAME:AddMessage("|cffffb52eACore Transmog|r loaded=yes protocol=" ..
+    DEFAULT_CHAT_FRAME:AddMessage("|cffffb52eSbTransmog|r loaded=yes protocol=" ..
         tostring(Addon.protocolVersion) .. " connected=" .. connected .. " session=" .. session ..
         " last=" .. tostring(Addon.lastProtocolMessage))
     if not Addon.connected then
@@ -64,7 +64,7 @@ local function PrintDebug()
     end
 end
 
-SlashCmdList.ACORETRANSMOG = function(message)
+SlashCmdList.SBTRANSMOG = function(message)
     message = string.lower(message or "")
     if message == "debug" then
         PrintDebug()
@@ -77,6 +77,6 @@ SlashCmdList.ACORETRANSMOG = function(message)
     else
         Addon.UI.frame:Show()
         Addon:ResetPreview()
-        Addon.UI:SetStatus(ACoreTransmogLocale.TALK_TO_NPC, 1, 0.3, 0.3)
+        Addon.UI:SetStatus(SbTransmogLocale.TALK_TO_NPC, 1, 0.3, 0.3)
     end
 end

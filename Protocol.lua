@@ -1,6 +1,6 @@
-ACoreTransmog = ACoreTransmog or {}
+SbTransmog = SbTransmog or {}
 
-local Addon = ACoreTransmog
+local Addon = SbTransmog
 local PREFIX = "AC_TRANSMOG"
 local VERSION = 4
 
@@ -51,14 +51,14 @@ end
 
 function Addon:RequestList(slot, page, search)
     if not self.sessionId then
-        self.UI:SetStatus(ACoreTransmogLocale.TALK_TO_NPC, 1, 0.3, 0.3)
+        self.UI:SetStatus(SbTransmogLocale.TALK_TO_NPC, 1, 0.3, 0.3)
         return
     end
 
     local requestId = self:NextRequestId()
     search = string.gsub(search or "", "[\t\r\n]", " ")
     if string.len(search) > 100 then
-        self.UI:SetStatus(ACoreTransmogLocale.ERROR_SEARCH, 1, 0.3, 0.3)
+        self.UI:SetStatus(SbTransmogLocale.ERROR_SEARCH, 1, 0.3, 0.3)
         return
     end
     self.pendingLists[requestId] = { items = {}, received = {}, chunks = nil }
@@ -73,7 +73,7 @@ function Addon:Apply(slot, itemEntry)
     end
     local requestId = self:NextRequestId()
     self.UI:SetBusy(true)
-    self.UI:SetStatus(ACoreTransmogLocale.APPLYING, 1, 0.82, 0)
+    self.UI:SetStatus(SbTransmogLocale.APPLYING, 1, 0.82, 0)
     self:Send(string.format("APPLY\t%d\t%d\t%d\t%d", requestId, self.sessionId, slot, itemEntry))
 end
 
@@ -93,7 +93,7 @@ function Addon:ApplyOutfit()
 
     local requestId = self:NextRequestId()
     self.UI:SetBusy(true)
-    self.UI:SetStatus(ACoreTransmogLocale.APPLYING_OUTFIT, 1, 0.82, 0)
+    self.UI:SetStatus(SbTransmogLocale.APPLYING_OUTFIT, 1, 0.82, 0)
     self:Send(string.format("APPLY_OUTFIT\t%d\t%d\t%s", requestId, self.sessionId, table.concat(changes, ",")))
 end
 
@@ -112,7 +112,7 @@ function Addon:RemoveAll()
     end
     local requestId = self:NextRequestId()
     self.UI:SetBusy(true)
-    self.UI:SetStatus(ACoreTransmogLocale.REMOVING_ALL, 1, 0.82, 0)
+    self.UI:SetStatus(SbTransmogLocale.REMOVING_ALL, 1, 0.82, 0)
     self:Send(string.format("REMOVE_ALL\t%d\t%d", requestId, self.sessionId))
 end
 
@@ -162,18 +162,18 @@ function Addon:SaveSet(name)
     if not self.sessionId then return end
     name = NormalizeSetName(name)
     if not name then
-        self.UI:SetStatus(ACoreTransmogLocale.ERROR_SET_NAME, 1, 0.3, 0.3)
+        self.UI:SetStatus(SbTransmogLocale.ERROR_SET_NAME, 1, 0.3, 0.3)
         return
     end
     local encoded = EncodeEntries(self:GetEffectiveOutfit())
     if encoded == "" then
-        self.UI:SetStatus(ACoreTransmogLocale.ERROR_EMPTY_SET, 1, 0.3, 0.3)
+        self.UI:SetStatus(SbTransmogLocale.ERROR_EMPTY_SET, 1, 0.3, 0.3)
         return
     end
     local requestId = self:NextRequestId()
     local command = string.format("SAVE_SET\t%d\t%d\t%s\t%s", requestId, self.sessionId, name, encoded)
     if string.len(command) > 240 then
-        self.UI:SetStatus(ACoreTransmogLocale.ERROR_SET_TOO_LARGE, 1, 0.3, 0.3)
+        self.UI:SetStatus(SbTransmogLocale.ERROR_SET_TOO_LARGE, 1, 0.3, 0.3)
         return
     end
     self.UI:SetBusy(true)
@@ -183,7 +183,7 @@ end
 function Addon:RenameSet(presetId, name)
     name = NormalizeSetName(name)
     if not self.sessionId or presetId == nil or not name then
-        self.UI:SetStatus(ACoreTransmogLocale.ERROR_SET_NAME, 1, 0.3, 0.3)
+        self.UI:SetStatus(SbTransmogLocale.ERROR_SET_NAME, 1, 0.3, 0.3)
         return
     end
     local requestId = self:NextRequestId()
@@ -206,7 +206,7 @@ function Addon:CloseSession()
 end
 
 local function ErrorText(code)
-    local L = ACoreTransmogLocale
+    local L = SbTransmogLocale
     local errors = {
         SESSION = L.ERROR_SESSION,
         THROTTLED = L.ERROR_THROTTLED,
@@ -248,7 +248,7 @@ function Addon:HandleProtocolMessage(message)
     if command == "HELLO_ERROR" then
         self.connected = false
         if self.UI then
-            self.UI:SetStatus(ACoreTransmogLocale.INCOMPATIBLE, 1, 0.3, 0.3)
+            self.UI:SetStatus(SbTransmogLocale.INCOMPATIBLE, 1, 0.3, 0.3)
         end
         return
     end
@@ -258,7 +258,7 @@ function Addon:HandleProtocolMessage(message)
         local opened, errorMessage = pcall(function() self.UI:Open() end)
         if not opened then
             self.lastProtocolMessage = "UI_ERROR"
-            DEFAULT_CHAT_FRAME:AddMessage("|cffff4040ACore Transmog UI error:|r " .. tostring(errorMessage))
+            DEFAULT_CHAT_FRAME:AddMessage("|cffff4040SbTransmog UI error:|r " .. tostring(errorMessage))
         end
         if opened then self:RequestSets() end
         return
@@ -312,11 +312,11 @@ function Addon:HandleProtocolMessage(message)
         self.UI:SetBusy(false)
         if parts[3] == "OK" then
             local messages = {
-                SAVED = ACoreTransmogLocale.SET_SAVED,
-                RENAMED = ACoreTransmogLocale.SET_RENAMED,
-                DELETED = ACoreTransmogLocale.SET_DELETED,
+                SAVED = SbTransmogLocale.SET_SAVED,
+                RENAMED = SbTransmogLocale.SET_RENAMED,
+                DELETED = SbTransmogLocale.SET_DELETED,
             }
-            self.UI:SetStatus(messages[parts[4]] or ACoreTransmogLocale.SET_UPDATED, 0.3, 1, 0.3)
+            self.UI:SetStatus(messages[parts[4]] or SbTransmogLocale.SET_UPDATED, 0.3, 1, 0.3)
             self:RequestSets()
         else
             self.UI:SetStatus(ErrorText(parts[4]), 1, 0.3, 0.3)
@@ -408,15 +408,15 @@ function Addon:HandleProtocolMessage(message)
             local slot = tonumber(parts[4])
             local itemEntry = tonumber(parts[5]) or 0
             if parts[4] == "OUTFIT" then
-                self.UI.pendingResultStatus = string.format(ACoreTransmogLocale.OUTFIT_APPLIED, itemEntry)
+                self.UI.pendingResultStatus = string.format(SbTransmogLocale.OUTFIT_APPLIED, itemEntry)
                 self:ClearDraft()
             elseif slot == 255 then
                 self.transmogSlots = {}
-                self.UI.pendingResultStatus = ACoreTransmogLocale.RESET_ALL_SUCCESS
+                self.UI.pendingResultStatus = SbTransmogLocale.RESET_ALL_SUCCESS
                 self:ClearDraft()
             elseif slot then
                 self.transmogSlots[slot] = itemEntry ~= 0 and itemEntry or nil
-                self.UI.pendingResultStatus = itemEntry == 0 and ACoreTransmogLocale.REMOVED or ACoreTransmogLocale.APPLIED
+                self.UI.pendingResultStatus = itemEntry == 0 and SbTransmogLocale.REMOVED or SbTransmogLocale.APPLIED
             end
             self.UI:UpdateTransmogSlotMarkers()
             self.UI:RefreshCurrentPage()

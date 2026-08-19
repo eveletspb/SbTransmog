@@ -1,7 +1,7 @@
-ACoreTransmog = ACoreTransmog or {}
+SbTransmog = SbTransmog or {}
 
-local Addon = ACoreTransmog
-local L = ACoreTransmogLocale
+local Addon = SbTransmog
+local L = SbTransmogLocale
 
 local FRAME_WIDTH = 1000
 local FRAME_HEIGHT = 660
@@ -36,7 +36,7 @@ local SLOT_TEXTURES = {
 local UI = {}
 Addon.UI = UI
 
-StaticPopupDialogs["ACORE_TRANSMOG_REMOVE_ALL"] = {
+StaticPopupDialogs["SB_TRANSMOG_REMOVE_ALL"] = {
     text = L.RESET_ALL_CONFIRM,
     button1 = YES,
     button2 = NO,
@@ -46,7 +46,7 @@ StaticPopupDialogs["ACORE_TRANSMOG_REMOVE_ALL"] = {
     hideOnEscape = true,
 }
 
-StaticPopupDialogs["ACORE_TRANSMOG_DELETE_SET"] = {
+StaticPopupDialogs["SB_TRANSMOG_DELETE_SET"] = {
     text = L.DELETE_SET_CONFIRM,
     button1 = YES,
     button2 = NO,
@@ -263,7 +263,7 @@ function UI:CreateItemButton(parent, index)
             Addon:SetDraftAppearance(UI.selectedSlot, self.itemEntry)
         end)
         if not previewed then
-            DEFAULT_CHAT_FRAME:AddMessage("|cffff4040ACore Transmog preview error:|r " .. tostring(errorMessage))
+            DEFAULT_CHAT_FRAME:AddMessage("|cffff4040SbTransmog preview error:|r " .. tostring(errorMessage))
         end
     end)
     button:SetScript("OnEnter", function(self)
@@ -294,7 +294,7 @@ function UI:CreateOutfitPanel(parent)
     local close = CreateFrame("Button", nil, panel, "UIPanelCloseButton")
     close:SetPoint("TOPRIGHT", -5, -5)
 
-    local nameEdit = CreateFrame("EditBox", "ACoreTransmogSetName", panel, "InputBoxTemplate")
+    local nameEdit = CreateFrame("EditBox", "SbTransmogSetName", panel, "InputBoxTemplate")
     nameEdit:SetWidth(240)
     nameEdit:SetHeight(26)
     nameEdit:SetPoint("TOPLEFT", 22, -48)
@@ -370,7 +370,7 @@ function UI:CreateOutfitPanel(parent)
     delete:GetFontString():SetTextColor(1, 0.3, 0.3)
     delete:SetScript("OnClick", function()
         local savedSet = UI.selectedSetId ~= nil and Addon.savedSets[UI.selectedSetId]
-        if savedSet then StaticPopup_Show("ACORE_TRANSMOG_DELETE_SET", savedSet.name, nil, UI.selectedSetId) end
+        if savedSet then StaticPopup_Show("SB_TRANSMOG_DELETE_SET", savedSet.name, nil, UI.selectedSetId) end
     end)
 
     self.outfitPanel = panel
@@ -458,7 +458,7 @@ function UI:Create()
         return
     end
 
-    local frame = CreateFrame("Frame", "ACoreTransmogFrame", UIParent)
+    local frame = CreateFrame("Frame", "SbTransmogFrame", UIParent)
     frame:SetWidth(FRAME_WIDTH)
     frame:SetHeight(FRAME_HEIGHT)
     frame:SetPoint("CENTER")
@@ -480,7 +480,7 @@ function UI:Create()
     frame:SetBackdropColor(0.018, 0.022, 0.03, 0.98)
     frame:Hide()
 
-    table.insert(UISpecialFrames, "ACoreTransmogFrame")
+    table.insert(UISpecialFrames, "SbTransmogFrame")
     frame:SetScript("OnHide", function()
         Addon:ClearDraft()
         Addon:CloseSession()
@@ -536,7 +536,7 @@ function UI:Create()
 
     -- This HD 3.3.5 client exposes DressUpModel as a creatable frame type.
     -- Unlike a generic PlayerModel, it provides the TryOn method.
-    local model = CreateFrame("DressUpModel", "ACoreTransmogModel", previewPanel)
+    local model = CreateFrame("DressUpModel", "SbTransmogModel", previewPanel)
     model:SetPoint("TOPLEFT", 53, -38)
     model:SetPoint("BOTTOMRIGHT", -53, 39)
     model:EnableMouse(true)
@@ -572,7 +572,7 @@ function UI:Create()
     resetAll:SetPoint("BOTTOMRIGHT", -16, 12)
     resetAll:GetFontString():SetTextColor(1, 0.3, 0.3)
     resetAll:SetScript("OnClick", function()
-        StaticPopup_Show("ACORE_TRANSMOG_REMOVE_ALL")
+        StaticPopup_Show("SB_TRANSMOG_REMOVE_ALL")
     end)
 
     self.slotButtons = {}
@@ -606,7 +606,7 @@ function UI:Create()
     slotTitle:SetPoint("TOPRIGHT", -18, -18)
     slotTitle:SetJustifyH("RIGHT")
 
-    local search = CreateFrame("EditBox", "ACoreTransmogSearch", collectionPanel, "InputBoxTemplate")
+    local search = CreateFrame("EditBox", "SbTransmogSearch", collectionPanel, "InputBoxTemplate")
     search:SetWidth(350)
     search:SetHeight(28)
     search:SetPoint("TOPLEFT", 24, -55)
@@ -923,7 +923,7 @@ function UI:RefreshItemInfo()
     if Addon.pendingDraftPreview then
         local previewed, errorMessage = pcall(function() Addon:PreviewDraft() end)
         if not previewed then
-            DEFAULT_CHAT_FRAME:AddMessage("|cffff4040ACore Transmog preview error:|r " .. tostring(errorMessage))
+            DEFAULT_CHAT_FRAME:AddMessage("|cffff4040SbTransmog preview error:|r " .. tostring(errorMessage))
         end
     end
 end

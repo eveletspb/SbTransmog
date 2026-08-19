@@ -1,0 +1,12 @@
+## Interface: 30300
+## Title: SbTransmog
+## Notes: Client interface for AzerothCore mod-transmog
+## Author: Sb
+## Version: 0.4.0
+## SavedVariables: SbTransmogDB
+
+Localization.lua
+Protocol.lua
+ModelPreview.lua
+UI.lua
+Core.lua
