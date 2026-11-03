@@ -648,7 +648,7 @@ function UI:Create()
 
     local qualityFilter = CreateFrame("Frame", "SbTransmogQualityFilter", collectionPanel, "UIDropDownMenuTemplate")
     qualityFilter:SetPoint("LEFT", searchButton, "RIGHT", -2, -2)
-    UIDropDownMenu_SetWidth(130, qualityFilter)
+    UIDropDownMenu_SetWidth(qualityFilter, 130)
     UIDropDownMenu_Initialize(qualityFilter, function()
         for quality = -1, 7 do
             local value = quality == -1 and 255 or quality
@@ -658,13 +658,13 @@ function UI:Create()
             info.checked = (UI.selectedQuality or 255) == value
             info.func = function()
                 UI.selectedQuality = value
-                UIDropDownMenu_SetText(text, qualityFilter)
+                UIDropDownMenu_SetText(qualityFilter, text)
                 UI:RequestPage(0)
             end
             UIDropDownMenu_AddButton(info)
         end
     end)
-    UIDropDownMenu_SetText(L.ALL_QUALITIES, qualityFilter)
+    UIDropDownMenu_SetText(qualityFilter, L.ALL_QUALITIES)
 
     local itemInfoTooltip = CreateFrame("GameTooltip", "SbTransmogItemInfoTooltip", frame, "GameTooltipTemplate")
     itemInfoTooltip:SetOwner(frame, "ANCHOR_NONE")

@@ -1,6 +1,10 @@
 function GetLocale() return "ruRU" end
 dofile("Localization.lua")
-SbTransmog = {}
+function UnitName() return "Tester" end
+local sent
+function SendAddonMessage(_, message) sent = message end
+SlashCmdList = {}
+dofile("Protocol.lua")
 StaticPopupDialogs = {}
 UISpecialFrames = {}
 YES, NO = "Yes", "No"
@@ -20,17 +24,29 @@ function CreateFrame(_, name)
     if name then frames[name] = frame end
     return frame
 end
-function UIDropDownMenu_SetWidth() end
-function UIDropDownMenu_SetText(text, frame) frame.text = text end
-function UIDropDownMenu_Initialize(frame, callback) frame.initialize = callback end
+function UIDropDownMenu_SetWidth(frame, width)
+    assert(type(frame) == "table" and type(width) == "number", "WoW 3.3.5 expects SetWidth(frame, width)")
+    frame.width = width
+end
+function UIDropDownMenu_SetText(frame, text)
+    assert(type(frame) == "table" and type(text) == "string", "WoW 3.3.5 expects SetText(frame, text)")
+    frame.text = text
+end
+function UIDropDownMenu_Initialize(frame, callback)
+    frame.initialize = callback
+    callback(frame)
+end
 function UIDropDownMenu_CreateInfo() return {} end
-local entries
+local entries = {}
 function UIDropDownMenu_AddButton(info) table.insert(entries, info) end
 for quality = 0, 7 do _G["ITEM_QUALITY" .. quality .. "_DESC"] = "Quality " .. quality end
 
 dofile("UI.lua")
+dofile("Core.lua")
 local UI = SbTransmog.UI
-UI:Create()
+assert(SLASH_SBTRANSMOG1 == "/transmog")
+SlashCmdList.SBTRANSMOG("")
+assert(sent == "HELLO\t5" and SbTransmog.openRequested == "hello", "the slash command must create the UI and start the handshake")
 UI.selectedSlot = 15
 UI.search:SetText("Меч")
 local requested
@@ -38,6 +54,7 @@ function SbTransmog:RequestList(slot, page, search, quality)
     requested = { slot, page, search, quality }
 end
 local filter = frames.SbTransmogQualityFilter
+assert(filter.width == 130 and filter.text == SbTransmogLocale.ALL_QUALITIES)
 local function OpenDropdown()
     entries = {}
     filter.initialize()
