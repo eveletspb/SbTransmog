@@ -31,6 +31,14 @@ eventFrame:SetScript("OnEvent", function(self, event, ...)
 end)
 
 eventFrame:SetScript("OnUpdate", function(self, elapsed)
+    if Addon.openRequested then
+        Addon.openElapsed = (Addon.openElapsed or 0) + elapsed
+        if Addon.openElapsed >= 10 then
+            Addon.openRequested = nil
+            Addon.UI:SetLoading(false)
+            Addon.UI:SetStatus(SbTransmogLocale.ERROR_NO_RESPONSE, 1, 0.3, 0.3)
+        end
+    end
     if not helloDelay then
         return
     end
@@ -71,12 +79,5 @@ SlashCmdList.SBTRANSMOG = function(message)
         return
     end
 
-    Addon.UI:Create()
-    if Addon.sessionId then
-        Addon.UI:Open()
-    else
-        Addon.UI.frame:Show()
-        Addon:ResetPreview()
-        Addon.UI:SetStatus(SbTransmogLocale.TALK_TO_NPC, 1, 0.3, 0.3)
-    end
+    Addon:RequestOpen()
 end

@@ -618,7 +618,7 @@ function UI:Create()
     slotTitle:SetJustifyH("RIGHT")
 
     local search = CreateFrame("EditBox", "SbTransmogSearch", collectionPanel, "InputBoxTemplate")
-    search:SetWidth(350)
+    search:SetWidth(280)
     search:SetHeight(28)
     search:SetPoint("TOPLEFT", 24, -55)
     search:SetAutoFocus(false)
@@ -642,9 +642,29 @@ function UI:Create()
     end)
     search:SetScript("OnEscapePressed", function(self) self:ClearFocus() end)
 
-    local searchButton = CreateButton(collectionPanel, L.SEARCH, 96, 26)
+    local searchButton = CreateButton(collectionPanel, L.SEARCH, 70, 26)
     searchButton:SetPoint("LEFT", search, "RIGHT", 10, 0)
     searchButton:SetScript("OnClick", function() UI:RequestPage(0) end)
+
+    local qualityFilter = CreateFrame("Frame", "SbTransmogQualityFilter", collectionPanel, "UIDropDownMenuTemplate")
+    qualityFilter:SetPoint("LEFT", searchButton, "RIGHT", -2, -2)
+    UIDropDownMenu_SetWidth(130, qualityFilter)
+    UIDropDownMenu_Initialize(qualityFilter, function()
+        for quality = -1, 7 do
+            local value = quality == -1 and 255 or quality
+            local text = quality == -1 and L.ALL_QUALITIES or _G["ITEM_QUALITY" .. quality .. "_DESC"]
+            local info = UIDropDownMenu_CreateInfo()
+            info.text = text
+            info.checked = (UI.selectedQuality or 255) == value
+            info.func = function()
+                UI.selectedQuality = value
+                UIDropDownMenu_SetText(text, qualityFilter)
+                UI:RequestPage(0)
+            end
+            UIDropDownMenu_AddButton(info)
+        end
+    end)
+    UIDropDownMenu_SetText(L.ALL_QUALITIES, qualityFilter)
 
     local itemInfoTooltip = CreateFrame("GameTooltip", "SbTransmogItemInfoTooltip", frame, "GameTooltipTemplate")
     itemInfoTooltip:SetOwner(frame, "ANCHOR_NONE")
@@ -735,12 +755,12 @@ function UI:Create()
     self.itemInfoTooltip = itemInfoTooltip
 end
 
-function UI:Open()
+function UI:Open(keepDraft)
     self:Create()
     self.busy = false
     self.frame:Show()
     self.outfitPanel:Hide()
-    Addon:ClearDraft()
+    if not keepDraft then Addon:ClearDraft() end
     self:RefreshSlotIcons()
 
     local initialSlot = self.selectedSlot
@@ -832,7 +852,7 @@ end
 
 function UI:RequestPage(page)
     if self.selectedSlot == nil then return end
-    Addon:RequestList(self.selectedSlot, math.max(0, page or 0), self.search:GetText() or "")
+    Addon:RequestList(self.selectedSlot, math.max(0, page or 0), self.search:GetText() or "", self.selectedQuality)
 end
 
 function UI:RefreshCurrentPage()

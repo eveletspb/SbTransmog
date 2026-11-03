@@ -2,7 +2,7 @@ SbTransmog = SbTransmog or {}
 
 local Addon = SbTransmog
 local PREFIX = "AC_TRANSMOG"
-local VERSION = 4
+local VERSION = 5
 
 Addon.connected = false
 Addon.sessionId = nil
@@ -49,9 +49,19 @@ function Addon:Hello()
     self:Send("HELLO\t" .. VERSION)
 end
 
-function Addon:RequestList(slot, page, search)
+function Addon:RequestOpen(keepDraft)
+    self.UI:Create()
+    self.UI.frame:Show()
+    self.UI:SetLoading(true)
+    self.openRequested = "hello"
+    self.openElapsed = 0
+    self.keepDraftOnOpen = keepDraft
+    self:Hello()
+end
+
+function Addon:RequestList(slot, page, search, quality)
     if not self.sessionId then
-        self.UI:SetStatus(SbTransmogLocale.TALK_TO_NPC, 1, 0.3, 0.3)
+        self:RequestOpen(true)
         return
     end
 
@@ -64,7 +74,7 @@ function Addon:RequestList(slot, page, search)
     self.pendingLists[requestId] = { items = {}, received = {}, chunks = nil }
     self.latestListRequestId = requestId
     self.UI:SetLoading(true)
-    self:Send(string.format("LIST\t%d\t%d\t%d\t%d\t%s", requestId, self.sessionId, slot, page or 0, search))
+    self:Send(string.format("LIST\t%d\t%d\t%d\t%d\t%s\t%d", requestId, self.sessionId, slot, page or 0, search, quality or 255))
 end
 
 function Addon:Apply(slot, itemEntry)
@@ -199,6 +209,10 @@ function Addon:DeleteSet(presetId)
 end
 
 function Addon:CloseSession()
+    self.openRequested = nil
+    self.keepDraftOnOpen = nil
+    self.pendingLists = {}
+    self.pendingSets = {}
     if self.sessionId then
         self:Send("CLOSE\t" .. self.sessionId)
     end
@@ -212,6 +226,8 @@ local function ErrorText(code)
         THROTTLED = L.ERROR_THROTTLED,
         DUPLICATE = L.ERROR_DUPLICATE,
         SEARCH = L.ERROR_SEARCH,
+        QUALITY = L.ERROR_QUALITY,
+        UNAVAILABLE = L.ERROR_UNAVAILABLE,
         SLOT = L.ERROR_SLOT,
         EMPTY_SLOT = L.ERROR_EMPTY_SLOT,
         COLLECTION_DISABLED = L.ERROR_COLLECTION_DISABLED,
@@ -242,12 +258,24 @@ function Addon:HandleProtocolMessage(message)
     if command == "HELLO_OK" then
         self.connected = tonumber(parts[2]) == VERSION
         self.helloAcknowledged = self.connected
+        if self.openRequested == "hello" then
+            if self.connected then
+                self.openRequested = "open"
+                self:Send("OPEN")
+            else
+                self.openRequested = nil
+                self.UI:SetLoading(false)
+                self.UI:SetStatus(SbTransmogLocale.INCOMPATIBLE, 1, 0.3, 0.3)
+            end
+        end
         return
     end
 
     if command == "HELLO_ERROR" then
         self.connected = false
+        self.openRequested = nil
         if self.UI then
+            self.UI:SetLoading(false)
             self.UI:SetStatus(SbTransmogLocale.INCOMPATIBLE, 1, 0.3, 0.3)
         end
         return
@@ -255,7 +283,12 @@ function Addon:HandleProtocolMessage(message)
 
     if command == "OPEN" then
         self.sessionId = tonumber(parts[2])
-        local opened, errorMessage = pcall(function() self.UI:Open() end)
+        self.openRequested = nil
+        self.pendingLists = {}
+        self.pendingSets = {}
+        local keepDraft = self.keepDraftOnOpen
+        self.keepDraftOnOpen = nil
+        local opened, errorMessage = pcall(function() self.UI:Open(keepDraft) end)
         if not opened then
             self.lastProtocolMessage = "UI_ERROR"
             DEFAULT_CHAT_FRAME:AddMessage("|cffff4040SbTransmog UI error:|r " .. tostring(errorMessage))
@@ -400,9 +433,15 @@ function Addon:HandleProtocolMessage(message)
 
     if command == "RESULT" then
         local requestId = tonumber(parts[2])
+        local wasList = requestId and self.pendingLists[requestId] ~= nil
+        if requestId == 0 then
+            self.openRequested = nil
+            self.UI:SetLoading(false)
+        end
         if requestId then
             self.pendingLists[requestId] = nil
         end
+        if wasList then self.UI:SetLoading(false) end
         self.UI:SetBusy(false)
         if parts[3] == "OK" then
             local slot = tonumber(parts[4])
@@ -425,6 +464,7 @@ function Addon:HandleProtocolMessage(message)
             self.UI:SetStatus(ErrorText(errorCode), 1, 0.3, 0.3)
             if errorCode == "SESSION" then
                 self.sessionId = nil
+                if wasList then self:RequestOpen(true) end
             end
         end
     end
