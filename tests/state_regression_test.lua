@@ -48,7 +48,7 @@ end
 local function reopen(session)
     A:RequestOpen(true)
     A:HandleProtocolMessage("HELLO_OK\t6")
-    A:HandleProtocolMessage("OPEN\t" .. session .. "\t" .. A.openRequestId)
+    A:HandleProtocolMessage("OPEN\t" .. session .. "\t" .. A.openRequestId .. "\t" .. A.generation)
     snapshot(session)
 end
 
@@ -111,9 +111,9 @@ A:ApplyOutfit()
 write = A.pendingOperation.id
 count = #sent
 A:HandleProtocolMessage("RESULT\t" .. write .. "\tERROR\tSESSION")
-assert(#sent == count + 1 and sent[#sent] == "HELLO\t6" and A:GetDraftCount() == 2)
+assert(#sent == count + 1 and sent[#sent] == "HELLO\t6\t" .. A.generation and A:GetDraftCount() == 2)
 A:HandleProtocolMessage("HELLO_OK\t6")
-A:HandleProtocolMessage("OPEN\t124\t" .. A.openRequestId)
+A:HandleProtocolMessage("OPEN\t124\t" .. A.openRequestId .. "\t" .. A.generation)
 snapshot(124)
 assert(A:GetDraftCount() == 2)
 
@@ -123,9 +123,14 @@ A:HandleProtocolMessage("HELLO_OK\t6")
 local opening, before = A.openRequestId, opened
 shown = false
 A:CloseSession()
-A:HandleProtocolMessage("OPEN\t125\t" .. opening)
+A:HandleProtocolMessage("OPEN\t125\t" .. opening .. "\t0")
 assert(not shown and opened == before and not A.sessionId)
-assert(sent[#sent] == "CLOSE\t125")
+assert(sent[#sent] == "CLOSE\t125\t1")
+A:HandleProtocolMessage("OPEN\t125\t0\t0")
+assert(not shown and opened == before and not A.sessionId, "a delayed NPC opening must also respect cancellation")
+A:HandleProtocolMessage("OPEN\t125\t0\t1")
+assert(shown and A.sessionId == 125, "a new NPC interaction after closing must still open the UI")
+A.draftSlots = { [0] = 1001, [2] = 1002 }
 
 -- Missing write replies release the UI and reconcile; late replies are ignored.
 reopen(126)
@@ -136,7 +141,7 @@ assert(not A.pendingOperation and not U.busy and A.openRequested)
 A:HandleProtocolMessage("RESULT\t" .. write .. "\tOK\tOUTFIT\t2\t100")
 assert(A:GetDraftCount() == 2, "an obsolete write reply must not erase the retained draft")
 A:HandleProtocolMessage("HELLO_OK\t6")
-A:HandleProtocolMessage("OPEN\t127\t" .. A.openRequestId)
+A:HandleProtocolMessage("OPEN\t127\t" .. A.openRequestId .. "\t" .. A.generation)
 snapshot(127)
 
 -- A legacy hidden slot survives SET decoding, loading, quoting and saving.

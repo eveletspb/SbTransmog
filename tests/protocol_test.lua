@@ -40,17 +40,17 @@ dofile("Core.lua")
 -- Login only negotiates; the slash command opens a remote session.
 events.OnEvent(nil, "PLAYER_LOGIN")
 events.OnUpdate(nil, 1)
-assert(sent[#sent] == "HELLO\t6")
+assert(sent[#sent] == "HELLO\t6\t0")
 Addon:HandleProtocolMessage("HELLO_OK\t6")
-assert(sent[#sent] == "HELLO\t6", "login must not open the window")
+assert(sent[#sent] == "HELLO\t6\t0", "login must not open the window")
 SlashCmdList.SBTRANSMOG("")
-assert(shown and loading and sent[#sent] == "HELLO\t6")
+assert(shown and loading and sent[#sent] == "HELLO\t6\t0")
 Addon:HandleProtocolMessage("HELLO_OK\t6")
 assert(sent[#sent] == "OPEN\t" .. Addon.openRequestId, "opening must not require gossip or an NPC")
 local sentBeforeDuplicateHello = #sent
 Addon:HandleProtocolMessage("HELLO_OK\t6")
 assert(#sent == sentBeforeDuplicateHello, "duplicate hello replies must not open extra sessions")
-Addon:HandleProtocolMessage("OPEN\t123\t" .. Addon.openRequestId)
+Addon:HandleProtocolMessage("OPEN\t123\t" .. Addon.openRequestId .. "\t" .. Addon.generation)
 assert(Addon.sessionId == 123 and opened == 1 and keepDraft)
 assert(sent[#sent]:match("^LIST_SETS\t%d+\t123$"))
 
@@ -84,7 +84,7 @@ id = Addon.latestListRequestId
 Addon:HandleProtocolMessage("RESULT\t" .. id .. "\tERROR\tSESSION")
 assert(Addon.openRequested and not Addon.sessionId)
 Addon:HandleProtocolMessage("HELLO_OK\t6")
-Addon:HandleProtocolMessage("OPEN\t124\t" .. Addon.openRequestId)
+Addon:HandleProtocolMessage("OPEN\t124\t" .. Addon.openRequestId .. "\t" .. Addon.generation)
 assert(keepDraft and Addon.draftSlots[0] == 42)
 
 -- Failed writes are never automatically repeated.
@@ -92,7 +92,7 @@ Addon:Apply(0, 42)
 id = Addon.requestId
 count = #sent
 Addon:HandleProtocolMessage("RESULT\t" .. id .. "\tERROR\tSESSION")
-assert(#sent == count + 1 and sent[#sent] == "HELLO\t6" and Addon.openRequested, "reconnect must retain the draft without resending a write")
+assert(#sent == count + 1 and sent[#sent] == "HELLO\t6\t0" and Addon.openRequested, "reconnect must retain the draft without resending a write")
 
 Addon:RequestOpen()
 Addon:HandleProtocolMessage("HELLO_ERROR\t4")
@@ -107,6 +107,6 @@ assert(not Addon.openRequested and not loading and status == SbTransmogLocale.ER
 
 Addon.sessionId = 125
 Addon:CloseSession()
-assert(sent[#sent] == "CLOSE\t125" and not Addon.sessionId)
+assert(sent[#sent] == "CLOSE\t125\t1" and not Addon.sessionId)
 assert(next(Addon.pendingLists) == nil and next(Addon.pendingSets) == nil)
 print("protocol_test: ok")

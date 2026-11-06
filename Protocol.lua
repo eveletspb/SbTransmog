@@ -7,6 +7,7 @@ local VERSION = 6
 Addon.connected = false
 Addon.sessionId = nil
 Addon.requestId = 0
+Addon.generation = 0
 Addon.pendingLists = {}
 Addon.transmogSlots = {}
 Addon.savedSets = {}
@@ -46,7 +47,7 @@ end
 
 function Addon:Hello()
     self.lastProtocolMessage = "HELLO sent"
-    self:Send("HELLO\t" .. VERSION)
+    self:Send("HELLO\t" .. VERSION .. "\t" .. self.generation)
 end
 
 function Addon:RequestOpen(keepDraft)
@@ -288,9 +289,8 @@ function Addon:CloseSession()
     self.UI:SetBusy(false)
     self.pendingLists = {}
     self.pendingSets = {}
-    if self.sessionId then
-        self:Send("CLOSE\t" .. self.sessionId)
-    end
+    self.generation = self.generation + 1
+    self:Send("CLOSE\t" .. (self.sessionId or 0) .. "\t" .. self.generation)
     self.sessionId = nil
 end
 
@@ -359,8 +359,9 @@ function Addon:HandleProtocolMessage(message)
 
     if command == "OPEN" then
         local opening = tonumber(parts[3])
-        if opening ~= 0 and (self.openRequested ~= "open" or opening ~= self.openRequestId) then
-            self:Send("CLOSE\t" .. (parts[2] or "0"))
+        if tonumber(parts[4]) ~= self.generation or
+            (opening ~= 0 and (self.openRequested ~= "open" or opening ~= self.openRequestId)) then
+            self:Send("CLOSE\t" .. (parts[2] or "0") .. "\t" .. self.generation)
             return
         end
         self.sessionId = tonumber(parts[2])
