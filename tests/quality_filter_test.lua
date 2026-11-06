@@ -46,7 +46,7 @@ dofile("Core.lua")
 local UI = SbTransmog.UI
 assert(SLASH_SBTRANSMOG1 == "/transmog")
 SlashCmdList.SBTRANSMOG("")
-assert(sent == "HELLO\t5" and SbTransmog.openRequested == "hello", "the slash command must create the UI and start the handshake")
+assert(sent == "HELLO\t6" and SbTransmog.openRequested == "hello", "the slash command must create the UI and start the handshake")
 UI.selectedSlot = 15
 UI.search:SetText("Меч")
 local requested

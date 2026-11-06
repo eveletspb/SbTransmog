@@ -8,7 +8,10 @@ Addon.draftSlots = Addon.draftSlots or {}
 
 local function TryOnItem(addon, slot, itemEntry)
     local link
-    if itemEntry == 0 then
+    if itemEntry == 1 then
+        if addon.UI.model.UndressSlot then addon.UI.model:UndressSlot(slot + 1) end
+        return true
+    elseif itemEntry == 0 then
         link = GetInventoryItemLink("player", slot + 1)
     else
         local _, itemLink = GetItemInfo("item:" .. itemEntry)
@@ -16,6 +19,7 @@ local function TryOnItem(addon, slot, itemEntry)
     end
 
     if not link then
+        if addon.UI.RequestItemInfo and itemEntry > 1 then addon.UI:RequestItemInfo(itemEntry) end
         return false
     end
     if slot == OFF_HAND_SLOT and addon.UI.model.UndressSlot then

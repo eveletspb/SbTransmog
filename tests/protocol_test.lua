@@ -40,33 +40,38 @@ dofile("Core.lua")
 -- Login only negotiates; the slash command opens a remote session.
 events.OnEvent(nil, "PLAYER_LOGIN")
 events.OnUpdate(nil, 1)
-assert(sent[#sent] == "HELLO\t5")
-Addon:HandleProtocolMessage("HELLO_OK\t5")
-assert(sent[#sent] == "HELLO\t5", "login must not open the window")
+assert(sent[#sent] == "HELLO\t6")
+Addon:HandleProtocolMessage("HELLO_OK\t6")
+assert(sent[#sent] == "HELLO\t6", "login must not open the window")
 SlashCmdList.SBTRANSMOG("")
-assert(shown and loading and sent[#sent] == "HELLO\t5")
-Addon:HandleProtocolMessage("HELLO_OK\t5")
-assert(sent[#sent] == "OPEN", "opening must not require gossip or an NPC")
+assert(shown and loading and sent[#sent] == "HELLO\t6")
+Addon:HandleProtocolMessage("HELLO_OK\t6")
+assert(sent[#sent] == "OPEN\t" .. Addon.openRequestId, "opening must not require gossip or an NPC")
 local sentBeforeDuplicateHello = #sent
-Addon:HandleProtocolMessage("HELLO_OK\t5")
+Addon:HandleProtocolMessage("HELLO_OK\t6")
 assert(#sent == sentBeforeDuplicateHello, "duplicate hello replies must not open extra sessions")
-Addon:HandleProtocolMessage("OPEN\t123")
-assert(Addon.sessionId == 123 and opened == 1 and not keepDraft)
+Addon:HandleProtocolMessage("OPEN\t123\t" .. Addon.openRequestId)
+assert(Addon.sessionId == 123 and opened == 1 and keepDraft)
 assert(sent[#sent]:match("^LIST_SETS\t%d+\t123$"))
 
 -- Both filters travel with every page; quality zero must not become 'all'.
 Addon:RequestList(0, 2, "МЕЧ\tЛьда", 4)
+Addon:UpdateProtocol(0.2)
 assert(sent[#sent]:match("^LIST\t%d+\t123\t0\t2\tМЕЧ Льда\t4$"))
 Addon:RequestList(0, 0, "", 0)
+Addon:UpdateProtocol(0.2)
 assert(sent[#sent]:match("\t0\t0\t\t0$"))
 Addon:RequestList(0, 0, "")
+Addon:UpdateProtocol(0.2)
 assert(sent[#sent]:match("\t0\t0\t\t255$"))
 local count = #sent
 Addon:RequestList(0, 0, string.rep("я", 51), 4)
+Addon:UpdateProtocol(0.2)
 assert(#sent == count and status == SbTransmogLocale.ERROR_SEARCH)
 
 -- Rendering preserves the global quality ordering supplied by the server.
 Addon:RequestList(0, 0, "", 4)
+Addon:UpdateProtocol(0.2)
 local id = Addon.latestListRequestId
 Addon:HandleProtocolMessage("PAGE\t" .. id .. "\t0\t0\t1\t2\t0\t0\t1")
 Addon:HandleProtocolMessage("ITEMS\t" .. id .. "\t0\t1\t200,100")
@@ -74,11 +79,12 @@ assert(pageItems[1] == 200 and pageItems[2] == 100)
 
 -- A read can reopen an expired session while retaining the draft.
 Addon:RequestList(0, 0, "", 4)
+Addon:UpdateProtocol(0.2)
 id = Addon.latestListRequestId
 Addon:HandleProtocolMessage("RESULT\t" .. id .. "\tERROR\tSESSION")
 assert(Addon.openRequested and not Addon.sessionId)
-Addon:HandleProtocolMessage("HELLO_OK\t5")
-Addon:HandleProtocolMessage("OPEN\t124")
+Addon:HandleProtocolMessage("HELLO_OK\t6")
+Addon:HandleProtocolMessage("OPEN\t124\t" .. Addon.openRequestId)
 assert(keepDraft and Addon.draftSlots[0] == 42)
 
 -- Failed writes are never automatically repeated.
@@ -86,13 +92,13 @@ Addon:Apply(0, 42)
 id = Addon.requestId
 count = #sent
 Addon:HandleProtocolMessage("RESULT\t" .. id .. "\tERROR\tSESSION")
-assert(#sent == count and not Addon.openRequested and status == SbTransmogLocale.ERROR_SESSION)
+assert(#sent == count + 1 and sent[#sent] == "HELLO\t6" and Addon.openRequested, "reconnect must retain the draft without resending a write")
 
 Addon:RequestOpen()
 Addon:HandleProtocolMessage("HELLO_ERROR\t4")
 assert(not Addon.openRequested and not loading and status == SbTransmogLocale.INCOMPATIBLE)
 Addon:RequestOpen()
-Addon:HandleProtocolMessage("HELLO_OK\t5")
+Addon:HandleProtocolMessage("HELLO_OK\t6")
 Addon:HandleProtocolMessage("RESULT\t0\tERROR\tUNAVAILABLE")
 assert(not Addon.openRequested and not loading and status == SbTransmogLocale.ERROR_UNAVAILABLE)
 Addon:RequestOpen()

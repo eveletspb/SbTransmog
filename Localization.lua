@@ -48,6 +48,7 @@ SbTransmogLocale = {
     SLOT_IN_DRAFT = "Changed in outfit draft",
     SLOT_REMOVAL_DRAFT = "Appearance will be removed",
     OUTFIT_PRICE = "%d changes, total:",
+    ERROR_EQUIPMENT_CHANGED = "Equipment changed. Review the outfit and try again.",
     ERROR_SESSION = "The session has expired. Open /transmog and try again.",
     ERROR_THROTTLED = "Please wait before trying again.",
     ERROR_DUPLICATE = "This operation has already been processed.",
@@ -90,6 +91,7 @@ SbTransmogLocale = {
 
 if GetLocale() == "ruRU" then
     local L = SbTransmogLocale
+    L.ERROR_EQUIPMENT_CHANGED = "Экипировка изменилась. Проверьте комплект и повторите действие."
     L.TITLE = "Трансмогрификация"
     L.SUBTITLE = "Коллекция обликов"
     L.PREVIEW = "ПРЕДПРОСМОТР"

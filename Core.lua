@@ -9,6 +9,7 @@ eventFrame:RegisterEvent("PLAYER_LOGIN")
 eventFrame:RegisterEvent("PLAYER_ENTERING_WORLD")
 eventFrame:RegisterEvent("CHAT_MSG_ADDON")
 eventFrame:RegisterEvent("GET_ITEM_INFO_RECEIVED")
+eventFrame:RegisterEvent("PLAYER_EQUIPMENT_CHANGED")
 
 eventFrame:SetScript("OnEvent", function(self, event, ...)
     if event == "PLAYER_LOGIN" then
@@ -23,6 +24,15 @@ eventFrame:SetScript("OnEvent", function(self, event, ...)
         end
     elseif event == "CHAT_MSG_ADDON" then
         Addon:OnAddonMessage(...)
+    elseif event == "PLAYER_EQUIPMENT_CHANGED" then
+        if Addon.UI and Addon.UI.frame and Addon.UI.frame:IsShown() then
+            local slot = ...
+            Addon.draftSlots[slot - 1] = nil
+            Addon.pendingLists, Addon.queuedList = {}, nil
+            Addon:RequestState()
+            Addon.UI:RefreshCurrentPage()
+            Addon.UI:UpdateDraftState()
+        end
     elseif event == "GET_ITEM_INFO_RECEIVED" then
         if Addon.UI and Addon.UI.frame and Addon.UI.frame:IsShown() and Addon.UI.page ~= nil then
             Addon.UI:RefreshItemInfo()
@@ -31,14 +41,7 @@ eventFrame:SetScript("OnEvent", function(self, event, ...)
 end)
 
 eventFrame:SetScript("OnUpdate", function(self, elapsed)
-    if Addon.openRequested then
-        Addon.openElapsed = (Addon.openElapsed or 0) + elapsed
-        if Addon.openElapsed >= 10 then
-            Addon.openRequested = nil
-            Addon.UI:SetLoading(false)
-            Addon.UI:SetStatus(SbTransmogLocale.ERROR_NO_RESPONSE, 1, 0.3, 0.3)
-        end
-    end
+    Addon:UpdateProtocol(elapsed)
     if not helloDelay then
         return
     end

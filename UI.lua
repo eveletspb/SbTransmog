@@ -876,7 +876,7 @@ end
 
 function UI:SetBusy(busy)
     self.busy = busy
-    SetButtonEnabled(self.apply, not busy and Addon:GetDraftCount() > 0)
+    SetButtonEnabled(self.apply, not busy and Addon.quoteReady and Addon:GetDraftCount() > 0)
     SetButtonEnabled(self.remove, not busy and ((self.currentEntry or 0) ~= 0 or Addon.draftSlots[self.selectedSlot] ~= nil))
     SetButtonEnabled(self.resetAll, not busy and Addon.transmogSlots and next(Addon.transmogSlots) ~= nil)
     SetButtonEnabled(self.cancelDraft, not busy and Addon:GetDraftCount() > 0)
@@ -898,27 +898,36 @@ function UI:UpdateSelection()
     for _, button in ipairs(self.itemButtons) do
         SetOutlineShown(button.selectionOutline, button.itemEntry ~= nil and button.itemEntry == self.selectedEntry)
     end
-    SetButtonEnabled(self.apply, not self.busy and Addon:GetDraftCount() > 0)
+    SetButtonEnabled(self.apply, not self.busy and Addon.quoteReady and Addon:GetDraftCount() > 0)
 end
 
 function UI:UpdateDraftState()
     if not self.frame then return end
 
     local count = 0
-    local totalPrice = 0
+    local totalPrice, tokenCount = 0, 0
+    local quoted = Addon.quoteReady
     for slot in pairs(Addon.draftSlots or {}) do
         count = count + 1
         if Addon.draftSlots[slot] ~= 0 then
-            totalPrice = totalPrice + ((self.slotPrices and self.slotPrices[slot]) or 0)
+            local hidden = Addon.draftSlots[slot] == 1
+            local prices = hidden and self.hiddenPrices or self.slotPrices
+            if not prices or prices[slot] == nil then quoted = false end
+            totalPrice = totalPrice + ((prices and prices[slot]) or 0)
+            if not hidden then tokenCount = tokenCount + (Addon.tokenAmount or 0) end
         end
     end
 
     self:UpdateTransmogSlotMarkers()
-    SetButtonEnabled(self.apply, not self.busy and count > 0)
+    SetButtonEnabled(self.apply, not self.busy and quoted and count > 0)
     SetButtonEnabled(self.cancelDraft, not self.busy and count > 0)
     SetButtonEnabled(self.remove, not self.busy and ((self.currentEntry or 0) ~= 0 or Addon.draftSlots[self.selectedSlot] ~= nil))
     if count > 0 then
-        self.priceText:SetText(string.format(L.OUTFIT_PRICE, count) .. " " .. GetCoinTextureString(totalPrice))
+        local price = quoted and GetCoinTextureString(totalPrice) or L.LOADING
+        if quoted and Addon.tokenEntry and Addon.tokenEntry > 0 and tokenCount > 0 then
+            price = price .. " + " .. tokenCount .. " x " .. (GetItemInfo("item:" .. Addon.tokenEntry) or ("#" .. Addon.tokenEntry))
+        end
+        self.priceText:SetText(string.format(L.OUTFIT_PRICE, count) .. " " .. price)
     else
         self.priceText:SetText(L.PRICE .. " " .. GetCoinTextureString(self.currentPrice or 0))
     end
@@ -1019,7 +1028,7 @@ function UI:ShowPage(meta, items)
     SetButtonEnabled(self.next, meta.page + 1 < meta.pageCount)
     self.pageText:SetText(string.format(L.PAGE, meta.page + 1, meta.pageCount, meta.total))
     self:UpdateDraftState()
-    SetButtonEnabled(self.remove, (meta.current or 0) ~= 0 or Addon.draftSlots[meta.slot] ~= nil)
+    SetButtonEnabled(self.remove, not self.busy and ((meta.current or 0) ~= 0 or Addon.draftSlots[meta.slot] ~= nil))
     if self.pendingResultStatus then
         self:SetStatus(self.pendingResultStatus, 0.3, 1, 0.3)
         self.pendingResultStatus = nil

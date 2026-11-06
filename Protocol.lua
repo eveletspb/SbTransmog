@@ -2,7 +2,7 @@ SbTransmog = SbTransmog or {}
 
 local Addon = SbTransmog
 local PREFIX = "AC_TRANSMOG"
-local VERSION = 5
+local VERSION = 6
 
 Addon.connected = false
 Addon.sessionId = nil
@@ -50,31 +50,100 @@ function Addon:Hello()
 end
 
 function Addon:RequestOpen(keepDraft)
+    if self.pendingOperation then return end
+    self.queuedList = nil
+    self.pendingLists, self.pendingSets = {}, {}
     self.UI:Create()
     self.UI.frame:Show()
     self.UI:SetLoading(true)
     self.openRequested = "hello"
     self.openElapsed = 0
-    self.keepDraftOnOpen = keepDraft
+    self.keepDraftOnOpen = keepDraft or (self.GetDraftCount and self:GetDraftCount() > 0)
+    self.openRequestId = self:NextRequestId()
+    self.quoteReady = false
+    self.stateElapsed = nil
     self:Hello()
 end
 
-function Addon:RequestList(slot, page, search, quality)
-    if not self.sessionId then
-        self:RequestOpen(true)
-        return
-    end
+function Addon:RequestState()
+    self.quoteReady = false
+    self.stateElapsed = 0
+    if self.sessionId then self:Send("STATE\t" .. self.sessionId) end
+end
 
-    local requestId = self:NextRequestId()
+function Addon:RequestList(slot, page, search, quality)
+    if self.pendingOperation then return end
+    if not self.sessionId then self:RequestOpen(true) return end
     search = string.gsub(search or "", "[\t\r\n]", " ")
     if string.len(search) > 100 then
+        self.UI:SetLoading(false)
         self.UI:SetStatus(SbTransmogLocale.ERROR_SEARCH, 1, 0.3, 0.3)
         return
     end
-    self.pendingLists[requestId] = { items = {}, received = {}, chunks = nil }
-    self.latestListRequestId = requestId
+    self.queuedList = { slot, page or 0, search, quality or 255 }
+    self.listDelay = 0.2
     self.UI:SetLoading(true)
-    self:Send(string.format("LIST\t%d\t%d\t%d\t%d\t%s\t%d", requestId, self.sessionId, slot, page or 0, search, quality or 255))
+end
+
+function Addon:BeginOperation(requestId)
+    if self.pendingOperation then return false end
+    self.pendingOperation = { id = requestId, elapsed = 0 }
+    self.UI:SetBusy(true)
+    return true
+end
+
+function Addon:UpdateProtocol(elapsed)
+    if self.openRequested then
+        self.openElapsed = (self.openElapsed or 0) + elapsed
+        if self.openElapsed >= 10 then
+            self.openRequested, self.openRequestId = nil, nil
+            self.UI:SetLoading(false)
+            self.UI:SetStatus(SbTransmogLocale.ERROR_NO_RESPONSE, 1, 0.3, 0.3)
+        end
+    end
+    if self.pendingOperation then
+        self.pendingOperation.elapsed = self.pendingOperation.elapsed + elapsed
+        if self.pendingOperation.elapsed >= 15 then
+            self.pendingOperation = nil
+            self.UI:SetBusy(false)
+            self:RequestOpen(true)
+        end
+    end
+    if self.stateElapsed then
+        self.stateElapsed = self.stateElapsed + elapsed
+        if self.stateElapsed >= 10 then
+            self.stateElapsed = nil
+            self:RequestOpen(true)
+        end
+    end
+    for id, pending in pairs(self.pendingLists) do
+        pending.elapsed = (pending.elapsed or 0) + elapsed
+        if pending.elapsed >= 10 then
+            self.pendingLists[id] = nil
+            if self.latestListRequestId == id and not self.queuedList then
+                self.UI:SetLoading(false)
+                self.UI:SetStatus(SbTransmogLocale.ERROR_NO_RESPONSE, 1, 0.3, 0.3)
+            end
+        end
+    end
+    for id, pending in pairs(self.pendingSets) do
+        pending.elapsed = (pending.elapsed or 0) + elapsed
+        if pending.elapsed >= 10 then
+            self.pendingSets[id] = nil
+            self.UI:SetStatus(SbTransmogLocale.ERROR_NO_RESPONSE, 1, 0.3, 0.3)
+        end
+    end
+    if self.queuedList and not self.pendingOperation then
+        self.listDelay = self.listDelay - elapsed
+        if self.listDelay <= 0 and self.sessionId then
+            local query = self.queuedList
+            self.queuedList = nil
+            local id = self:NextRequestId()
+            self.pendingLists = { [id] = { items = {}, received = {}, query = query, elapsed = 0 } }
+            self.latestListRequestId = id
+            self:Send(string.format("LIST\t%d\t%d\t%d\t%d\t%s\t%d", id, self.sessionId, unpack(query)))
+        end
+    end
 end
 
 function Addon:Apply(slot, itemEntry)
@@ -82,13 +151,15 @@ function Addon:Apply(slot, itemEntry)
         return
     end
     local requestId = self:NextRequestId()
-    self.UI:SetBusy(true)
+    if not self:BeginOperation(requestId) then return end
     self.UI:SetStatus(SbTransmogLocale.APPLYING, 1, 0.82, 0)
-    self:Send(string.format("APPLY\t%d\t%d\t%d\t%d", requestId, self.sessionId, slot, itemEntry))
+    self:Send(string.format("APPLY\t%d\t%d\t%d\t%d\t%d", requestId, self.sessionId, slot, itemEntry, self.quoteId or 0))
 end
 
 function Addon:ApplyOutfit()
-    if not self.sessionId or self:GetDraftCount() == 0 then return end
+    if self:GetDraftCount() == 0 then return end
+    if not self.sessionId then self:RequestOpen(true) return end
+    if not self.quoteReady then self:RequestState() return end
 
     local slots = {}
     for slot in pairs(self.draftSlots) do
@@ -102,9 +173,9 @@ function Addon:ApplyOutfit()
     end
 
     local requestId = self:NextRequestId()
-    self.UI:SetBusy(true)
+    if not self:BeginOperation(requestId) then return end
     self.UI:SetStatus(SbTransmogLocale.APPLYING_OUTFIT, 1, 0.82, 0)
-    self:Send(string.format("APPLY_OUTFIT\t%d\t%d\t%s", requestId, self.sessionId, table.concat(changes, ",")))
+    self:Send(string.format("APPLY_OUTFIT\t%d\t%d\t%s\t%d", requestId, self.sessionId, table.concat(changes, ","), self.quoteId or 0))
 end
 
 function Addon:Remove(slot)
@@ -112,8 +183,8 @@ function Addon:Remove(slot)
         return
     end
     local requestId = self:NextRequestId()
-    self.UI:SetBusy(true)
-    self:Send(string.format("REMOVE\t%d\t%d\t%d", requestId, self.sessionId, slot))
+    if not self:BeginOperation(requestId) then return end
+    self:Send(string.format("REMOVE\t%d\t%d\t%d\t%d", requestId, self.sessionId, slot, self.quoteId or 0))
 end
 
 function Addon:RemoveAll()
@@ -121,9 +192,9 @@ function Addon:RemoveAll()
         return
     end
     local requestId = self:NextRequestId()
-    self.UI:SetBusy(true)
+    if not self:BeginOperation(requestId) then return end
     self.UI:SetStatus(SbTransmogLocale.REMOVING_ALL, 1, 0.82, 0)
-    self:Send(string.format("REMOVE_ALL\t%d\t%d", requestId, self.sessionId))
+    self:Send(string.format("REMOVE_ALL\t%d\t%d\t%d", requestId, self.sessionId, self.quoteId or 0))
 end
 
 local function NormalizeSetName(name)
@@ -145,10 +216,10 @@ end
 function Addon:GetEffectiveOutfit()
     local entries = {}
     for slot, itemEntry in pairs(self.transmogSlots or {}) do
-        if itemEntry and itemEntry > 1 then entries[slot] = itemEntry end
+        if itemEntry and itemEntry > 0 then entries[slot] = itemEntry end
     end
     for slot, itemEntry in pairs(self.draftSlots or {}) do
-        if itemEntry and itemEntry > 1 then
+        if itemEntry and itemEntry > 0 then
             entries[slot] = itemEntry
         else
             entries[slot] = nil
@@ -170,6 +241,7 @@ end
 
 function Addon:SaveSet(name)
     if not self.sessionId then return end
+    if not self.quoteReady then self:RequestState() return end
     name = NormalizeSetName(name)
     if not name then
         self.UI:SetStatus(SbTransmogLocale.ERROR_SET_NAME, 1, 0.3, 0.3)
@@ -186,7 +258,7 @@ function Addon:SaveSet(name)
         self.UI:SetStatus(SbTransmogLocale.ERROR_SET_TOO_LARGE, 1, 0.3, 0.3)
         return
     end
-    self.UI:SetBusy(true)
+    if not self:BeginOperation(requestId) then return end
     self:Send(command)
 end
 
@@ -197,20 +269,23 @@ function Addon:RenameSet(presetId, name)
         return
     end
     local requestId = self:NextRequestId()
-    self.UI:SetBusy(true)
+    if not self:BeginOperation(requestId) then return end
     self:Send(string.format("RENAME_SET\t%d\t%d\t%d\t%s", requestId, self.sessionId, presetId, name))
 end
 
 function Addon:DeleteSet(presetId)
     if not self.sessionId or presetId == nil then return end
     local requestId = self:NextRequestId()
-    self.UI:SetBusy(true)
+    if not self:BeginOperation(requestId) then return end
     self:Send(string.format("DELETE_SET\t%d\t%d\t%d", requestId, self.sessionId, presetId))
 end
 
 function Addon:CloseSession()
-    self.openRequested = nil
+    self.openRequested, self.openRequestId = nil, nil
     self.keepDraftOnOpen = nil
+    self.queuedList, self.pendingOperation = nil, nil
+    self.quoteReady, self.stateSnapshot, self.stateElapsed = false, nil, nil
+    self.UI:SetBusy(false)
     self.pendingLists = {}
     self.pendingSets = {}
     if self.sessionId then
@@ -223,6 +298,7 @@ local function ErrorText(code)
     local L = SbTransmogLocale
     local errors = {
         SESSION = L.ERROR_SESSION,
+        EQUIPMENT_CHANGED = L.ERROR_EQUIPMENT_CHANGED,
         THROTTLED = L.ERROR_THROTTLED,
         DUPLICATE = L.ERROR_DUPLICATE,
         SEARCH = L.ERROR_SEARCH,
@@ -261,7 +337,7 @@ function Addon:HandleProtocolMessage(message)
         if self.openRequested == "hello" then
             if self.connected then
                 self.openRequested = "open"
-                self:Send("OPEN")
+                self:Send("OPEN\t" .. self.openRequestId)
             else
                 self.openRequested = nil
                 self.UI:SetLoading(false)
@@ -282,7 +358,13 @@ function Addon:HandleProtocolMessage(message)
     end
 
     if command == "OPEN" then
+        local opening = tonumber(parts[3])
+        if opening ~= 0 and (self.openRequested ~= "open" or opening ~= self.openRequestId) then
+            self:Send("CLOSE\t" .. (parts[2] or "0"))
+            return
+        end
         self.sessionId = tonumber(parts[2])
+        self.openRequestId = nil
         self.openRequested = nil
         self.pendingLists = {}
         self.pendingSets = {}
@@ -341,39 +423,55 @@ function Addon:HandleProtocolMessage(message)
 
     if command == "SET_RESULT" then
         local requestId = tonumber(parts[2])
-        if requestId then self.pendingSets[requestId] = nil end
-        self.UI:SetBusy(false)
+        local wasRead = requestId and self.pendingSets[requestId] ~= nil
+        local wasWrite = self.pendingOperation and self.pendingOperation.id == requestId
+        if not wasRead and not wasWrite then return end
+        self.pendingSets[requestId] = nil
+        if wasWrite then
+            self.pendingOperation = nil
+            self.UI:SetBusy(false)
+        end
         if parts[3] == "OK" then
-            local messages = {
-                SAVED = SbTransmogLocale.SET_SAVED,
-                RENAMED = SbTransmogLocale.SET_RENAMED,
-                DELETED = SbTransmogLocale.SET_DELETED,
-            }
+            local messages = { SAVED = SbTransmogLocale.SET_SAVED, RENAMED = SbTransmogLocale.SET_RENAMED, DELETED = SbTransmogLocale.SET_DELETED }
             self.UI:SetStatus(messages[parts[4]] or SbTransmogLocale.SET_UPDATED, 0.3, 1, 0.3)
             self:RequestSets()
         else
             self.UI:SetStatus(ErrorText(parts[4]), 1, 0.3, 0.3)
+            if parts[4] == "SESSION" then self.sessionId = nil self:RequestOpen(true) end
         end
         return
     end
 
-    if command == "SLOTS" then
-        self.transmogSlots = {}
-        if parts[2] and parts[2] ~= "" then
-            for value in string.gmatch(parts[2], "[^,]+") do
-                local separator = string.find(value, ":", 1, true)
-                if separator then
-                    local slot = tonumber(string.sub(value, 1, separator - 1))
-                    local itemEntry = tonumber(string.sub(value, separator + 1))
-                    if slot and itemEntry then
-                        self.transmogSlots[slot] = itemEntry
-                    end
-                end
-            end
+    if command == "STATE_BEGIN" and tonumber(parts[2]) == self.sessionId then
+        self.stateElapsed = 0
+        self.stateSnapshot = { slots = {}, prices = {}, hiddenPrices = {}, quoteId = tonumber(parts[3]), tokenEntry = tonumber(parts[4]), tokenAmount = tonumber(parts[5]) }
+        self.quoteReady = false
+        return
+    end
+    if command == "EQUIP" and tonumber(parts[2]) == self.sessionId and self.stateSnapshot then
+        local slot, price, current = tonumber(parts[3]), tonumber(parts[4]), tonumber(parts[5])
+        if slot and price and current then
+            self.stateSnapshot.prices[slot] = price
+            self.stateSnapshot.hiddenPrices[slot] = tonumber(parts[7])
+            self.stateSnapshot.slots[slot] = current ~= 0 and current or nil
         end
-        if self.UI then
-            self.UI:UpdateTransmogSlotMarkers()
+        return
+    end
+    if command == "STATE_END" and tonumber(parts[2]) == self.sessionId and self.stateSnapshot then
+        local state = self.stateSnapshot
+        for slot = 0, 18 do
+            if state.prices[slot] == nil or state.hiddenPrices[slot] == nil then return end
         end
+        self.stateSnapshot, self.stateElapsed = nil, nil
+        self.transmogSlots = state.slots
+        self.UI.slotPrices, self.UI.hiddenPrices = state.prices, state.hiddenPrices
+        self.tokenEntry, self.tokenAmount, self.quoteId = state.tokenEntry, state.tokenAmount, state.quoteId
+        for slot, entry in pairs(self.draftSlots or {}) do
+            if entry == state.slots[slot] or (entry == 0 and not state.slots[slot]) then self.draftSlots[slot] = nil end
+        end
+        self.quoteReady = true
+        self.UI:UpdateTransmogSlotMarkers()
+        self.UI:UpdateDraftState()
         return
     end
 
@@ -423,7 +521,7 @@ function Addon:HandleProtocolMessage(message)
             end
         end
         if complete then
-            if self.latestListRequestId == requestId then
+            if self.latestListRequestId == requestId and not self.queuedList then
                 self.UI:ShowPage(pending.meta, pending.items)
             end
             self.pendingLists[requestId] = nil
@@ -433,16 +531,23 @@ function Addon:HandleProtocolMessage(message)
 
     if command == "RESULT" then
         local requestId = tonumber(parts[2])
-        local wasList = requestId and self.pendingLists[requestId] ~= nil
+        local pending = requestId and self.pendingLists[requestId]
+        local wasList = pending ~= nil
+        local wasSetRead = requestId and self.pendingSets[requestId] ~= nil
+        local wasWrite = self.pendingOperation and self.pendingOperation.id == requestId
+        if requestId ~= 0 and not wasList and not wasSetRead and not wasWrite then return end
         if requestId == 0 then
-            self.openRequested = nil
+            self.openRequested, self.openRequestId = nil, nil
             self.UI:SetLoading(false)
         end
         if requestId then
-            self.pendingLists[requestId] = nil
+            self.pendingLists[requestId], self.pendingSets[requestId] = nil, nil
         end
-        if wasList then self.UI:SetLoading(false) end
-        self.UI:SetBusy(false)
+        if wasList and not self.queuedList then self.UI:SetLoading(false) end
+        if wasWrite then
+            self.pendingOperation = nil
+            self.UI:SetBusy(false)
+        end
         if parts[3] == "OK" then
             local slot = tonumber(parts[4])
             local itemEntry = tonumber(parts[5]) or 0
@@ -461,10 +566,15 @@ function Addon:HandleProtocolMessage(message)
             self.UI:RefreshCurrentPage()
         else
             local errorCode = parts[4]
+            if errorCode == "THROTTLED" and wasList and not self.queuedList then
+                self:RequestList(unpack(pending.query))
+                return
+            end
+            if errorCode == "EQUIPMENT_CHANGED" then self:ClearDraft() end
             self.UI:SetStatus(ErrorText(errorCode), 1, 0.3, 0.3)
             if errorCode == "SESSION" then
                 self.sessionId = nil
-                if wasList then self:RequestOpen(true) end
+                self:RequestOpen(true)
             end
         end
     end

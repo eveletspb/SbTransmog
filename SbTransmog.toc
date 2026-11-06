@@ -2,7 +2,7 @@
 ## Title: SbTransmog
 ## Notes: Client interface for AzerothCore mod-transmog
 ## Author: Sb
-## Version: 0.5.0
+## Version: 0.6.0
 ## SavedVariables: SbTransmogDB
 
 Localization.lua

@@ -28,7 +28,7 @@ Enable `SbTransmog` in the addon list on the character-selection screen.
 ## Compatibility
 
 The addon communicates with the server through the `AC_TRANSMOG` protocol
-prefix, version **5**. Update the addon and `mod-transmog` together; older
+prefix, version **6**. Update the addon and `mod-transmog` together; older
 protocol versions are rejected.
 
 ## Usage
@@ -44,3 +44,12 @@ server validation and costs as before.
 ## License
 
 AGPL-3.0. See [LICENSE](LICENSE).
+
+## Audit regression checks
+
+Run each `tests/*_test.lua` with LuaJIT from the addon directory.
+Protocol v6 requires updating the addon and server module together. Equipment
+snapshots include all slot prices, token costs, and a quote ID. Mutations reject
+changed equipment or obsolete quotes. Timed-out writes reconnect and read state;
+they are never automatically submitted again. Saved outfits use the configured
+server set-saving fee, including when saved from an unapplied preview.
